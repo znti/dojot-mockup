@@ -3,6 +3,8 @@ const app = express();
 
 const serverPort = 8080;
 
+const customFunction = require('./customFunction');
+
 app.use(express.json());
 app.use((req, res, next) => {
 	let {method, url} = req;
@@ -95,6 +97,7 @@ const devices = [];
 function getDevices() {
 	return devices.map(d => d.deviceId);
 }
+
 function addDevice(deviceData) {
 	devices.push(deviceData);
 }
@@ -116,7 +119,7 @@ function addDeviceMessage(deviceId, messageData) {
 
 	let generatedMessage = {
 		...messageData,
-		_serverTime: Date.now(),
+		_receivedTime: Date.now(),
 	};
 
 	deviceMessages.push(generatedMessage);
@@ -129,11 +132,12 @@ function addDeviceMessage(deviceId, messageData) {
  * Flow
  */
 
-function onDeviceDataReceived(device, receivedData) {
-	console.debug('[ODDR] Got data from', device.deviceId, ':', receivedData);
+function onDeviceDataReceived(deviceData, receivedData) {
+	console.debug('[ODDR] Got data from', deviceData.deviceId, ':', receivedData);
 
-	let processedData = receivedData;
-	onDeviceDataProcessed(device, processedData);
+	let processedData = customFunction(deviceData, receivedData);
+
+	onDeviceDataProcessed(deviceData, processedData);
 }
 
 function onDeviceDataProcessed(device, processedData) {
