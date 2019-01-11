@@ -80,12 +80,14 @@ app.post('/devices/:deviceId/messages', (req, res) => {
 	deviceMessages.push(generatedMessage);
 	device.messages = deviceMessages;
 	let allTheRestTime = (Date.now() - startTime);
+
+	onDeviceDataReceived(device, generatedMessage);
+
 	res.send();
 
 	if((totalMessages % 500) === 0) {
-		console.debug(Date.now(), 'Device', deviceId, 'sent message', messageData, '(message #', totalMessages, ')');
-	console.debug('Loaded device in', deviceLoadTime, 'ms');
-	console.debug('Did the rest in', allTheRestTime, 'ms');
+		console.debug('Loaded device in', deviceLoadTime, 'ms');
+		console.debug('Did the rest in', allTheRestTime, 'ms');
 	}
 
 	totalMessages++;
@@ -95,3 +97,19 @@ app.post('/devices/:deviceId/messages', (req, res) => {
 app.listen(serverPort, () => {
 	console.log('Server listening on port', serverPort);
 });
+
+
+/*
+ * Flow
+ */
+
+function onDeviceDataReceived(device, receivedData) {
+	console.debug('[ODDR] Got data from', device.deviceId, ':', receivedData);
+
+	let processedData = receivedData;
+	onDeviceDataProcessed(device, processedData);
+}
+
+function onDeviceDataProcessed(device, processedData) {
+	console.debug('[ODDP] Got data from', device.deviceId, ':', processedData);
+}
