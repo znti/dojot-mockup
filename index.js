@@ -3,8 +3,6 @@ const app = express();
 
 const serverPort = 8080;
 
-const devices = [];
-
 app.use(express.json());
 app.use((req, res, next) => {
 	let {method, url} = req;
@@ -16,9 +14,8 @@ app.get('/ping', (req, res) => {
 	res.send('pong');
 });
 
-
 app.get('/devices', (req, res) => {
-	res.send({devices: devices.map(d => d.deviceId)});
+	res.send({devices: getDevices()});
 });
 
 app.post('/devices', (req, res) => {
@@ -39,14 +36,15 @@ app.post('/devices', (req, res) => {
 	}
 
 	console.debug('Creating device from', deviceData);
-	devices.push(deviceData);
+
+	addDevice(deviceData);
 	res.send(deviceData);
 
 });
 
 app.get('/devices/:deviceId', (req, res) => {
 	let {deviceId} = req.params || '<empty>';
-	let device = devices.find(d => d.deviceId === deviceId)
+	let device = getDevice(deviceId);
 	console.debug('Sending device (id', deviceId, ') data:', device);
 	res.send(device);
 });
@@ -60,7 +58,7 @@ app.post('/devices/:deviceId/messages', (req, res) => {
 	let startTime;
 
 	startTime = Date.now();
-	let device = devices.find(d => d.deviceId === deviceId);
+	let device = getDevice(deviceId);
 	let deviceLoadTime = (Date.now() - startTime);
 
 	startTime = Date.now();
@@ -70,18 +68,8 @@ app.post('/devices/:deviceId/messages', (req, res) => {
 		return res.status(404).send({message});
 	}
 
-	deviceMessages = device.messages || [];
-
-	let generatedMessage = {
-		...messageData,
-		_serverTime: Date.now(),
-	};
-
-	deviceMessages.push(generatedMessage);
-	device.messages = deviceMessages;
+	addDeviceMessage(deviceId, messageData);
 	let allTheRestTime = (Date.now() - startTime);
-
-	onDeviceDataReceived(device, generatedMessage);
 
 	res.send();
 
@@ -98,6 +86,44 @@ app.listen(serverPort, () => {
 	console.log('Server listening on port', serverPort);
 });
 
+/*
+ * DeviceManager
+ */
+
+const devices = [];
+
+function getDevices() {
+	return devices.map(d => d.deviceId);
+}
+function addDevice(deviceData) {
+	devices.push(deviceData);
+}
+
+function getDevice(deviceId) {
+	return devices.find(d => d.deviceId === deviceId);
+}
+
+function addDeviceMessage(deviceId, messageData) {
+
+	let device = getDevice(deviceId);
+
+	if(!device) {
+		console.log(`Device not found for id ${deviceId}`);
+		return;
+	}
+
+	deviceMessages = device.messages || [];
+
+	let generatedMessage = {
+		...messageData,
+		_serverTime: Date.now(),
+	};
+
+	deviceMessages.push(generatedMessage);
+	device.messages = deviceMessages;
+
+	onDeviceDataReceived(device, generatedMessage);
+}
 
 /*
  * Flow
