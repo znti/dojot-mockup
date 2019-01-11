@@ -7,7 +7,8 @@ const devices = [];
 
 app.use(express.json());
 app.use((req, res, next) => {
-	console.log(`${new Date()}: Got a request`);
+	let {method, url} = req;
+	console.debug(`${new Date()}: Got a ${method} request on ${url}`);
 	next();
 });
 
@@ -15,18 +16,31 @@ app.get('/ping', (req, res) => {
 	res.send('pong');
 });
 
+
+app.get('/devices', (req, res) => {
+	res.send({devices: devices.map(d => d.deviceId)});
+});
+
 app.post('/devices', (req, res) => {
 	let deviceData = req.body;
 
-	if('deviceId' in deviceData) {
-		console.debug('Creating device from', deviceData);
-		devices.push(deviceData);
-		return res.send(devices);
-	} else {
-		let message = `'deviceId' field is missing`;
+	let {deviceId} = deviceData;
+
+	if(devices.find(d => d.deviceId === deviceId)) {
+		let message = `Device ${deviceId} already exists`
 		console.debug(message);
-		res.status(400).send({message});
+		return res.status(400).send({message});
 	}
+
+	if(!deviceId) {
+		let message = '"deviceId" field is missing';
+		console.debug(message);
+		return res.status(400).send({message});
+	}
+
+	console.debug('Creating device from', deviceData);
+	devices.push(deviceData);
+	res.send(deviceData);
 
 });
 
@@ -37,25 +51,45 @@ app.get('/devices/:deviceId', (req, res) => {
 	res.send(device);
 });
 
+let totalMessages = 0;
+
 app.post('/devices/:deviceId/messages', (req, res) => {
 	let messageData = req.body || '<empty>';
 	let {deviceId} = req.params || '<empty>';
-	let device = devices.find(d => d.deviceId === deviceId)
-	if(device) {
-		console.log('Device', deviceId, 'sent message', messageData);
-		deviceMessages = device.messages || [];
-		let generatedMessage = {
-			...messageData,
-			_serverTime: Date.now(),
-		};
-		deviceMessages.push(generatedMessage);
-		device.messages = deviceMessages;
-		res.send();
-	} else {
+
+	let startTime;
+
+	startTime = Date.now();
+	let device = devices.find(d => d.deviceId === deviceId);
+	let deviceLoadTime = (Date.now() - startTime);
+
+	startTime = Date.now();
+	if(!device) {
 		let message = `Device not found for id ${deviceId}`;
 		console.debug(message);
-		res.status(404).send({message});
+		return res.status(404).send({message});
 	}
+
+	deviceMessages = device.messages || [];
+
+	let generatedMessage = {
+		...messageData,
+		_serverTime: Date.now(),
+	};
+
+	deviceMessages.push(generatedMessage);
+	device.messages = deviceMessages;
+	let allTheRestTime = (Date.now() - startTime);
+	res.send();
+
+	if((totalMessages % 500) === 0) {
+		console.debug(Date.now(), 'Device', deviceId, 'sent message', messageData, '(message #', totalMessages, ')');
+	console.debug('Loaded device in', deviceLoadTime, 'ms');
+	console.debug('Did the rest in', allTheRestTime, 'ms');
+	}
+
+	totalMessages++;
+
 });
 
 app.listen(serverPort, () => {
